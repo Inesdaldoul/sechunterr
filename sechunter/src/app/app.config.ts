@@ -20,11 +20,14 @@ export const appConfig: ApplicationConfig = {
       useValue: {
         tokenGetter: () => {
           const platformId = inject(PLATFORM_ID);
-          return isPlatformBrowser(platformId)
-            ? localStorage.getItem('access_token')
-            : null;
+          if (isPlatformBrowser(platformId)) {
+            // Try to get the token from both possible storage keys
+            return localStorage.getItem('access_token') || localStorage.getItem('token');
+          }
+          return null;
         },
-        allowedDomains: ['localhost:4200']
+        allowedDomains: ['localhost:4200', 'localhost:5000', 'localhost:60128', 'localhost:64745'],
+        disallowedRoutes: []
       }
     },
     JwtHelperService

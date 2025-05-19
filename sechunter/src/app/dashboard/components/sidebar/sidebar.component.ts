@@ -236,16 +236,11 @@ export class SidebarComponent implements OnInit {
   }
 
   /**
-   * Navigate to sign up page
-   */
-  navigateToSignUp(): void {
-    this.router.navigate(['/signup']);
-  }
-
-  /**
    * Navigate to sign in page
    */
   navigateToSignIn(): void {
     this.router.navigate(['/auth']);
   }
 }
+
+

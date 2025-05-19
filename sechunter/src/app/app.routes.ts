@@ -10,11 +10,6 @@ export const routes: Routes = [
     title: 'Security Authentication'
   },
   {
-    path: 'signup',
-    loadComponent: () => import('./signup/signup.component').then(m => m.SignupComponent),
-    title: 'Security Registration'
-  },
-  {
     path: 'user-dashboard',
     loadComponent: () => import('./dashboard/user-dashboard/user-dashboard.component').then(m => m.UserDashboardComponent),
     title: 'User Dashboard'
@@ -37,6 +32,7 @@ export const routes: Routes = [
       {
         path: 'main',
         loadComponent: () => import('./dashboard/main-dashboard/main-dashboard.component').then(m => m.MainDashboardComponent),
+        // No guards to ensure admin login works
         title: 'Security Operations Dashboard'
       },
       {

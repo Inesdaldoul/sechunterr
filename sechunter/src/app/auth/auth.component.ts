@@ -5,6 +5,7 @@ import { animate, style, transition, trigger } from '@angular/animations';
 import { RouterModule } from '@angular/router';
 import { FullscreenService } from '../core/services/fullscreen.service';
 import { FullscreenButtonComponent } from '../shared/components/fullscreen-button/fullscreen-button.component';
+import { AuthService } from '../core/services/auth.service';
 @Component({
   selector: 'app-auth',
   templateUrl: './auth.component.html',
@@ -45,7 +46,8 @@ export class AuthComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private fullscreenService: FullscreenService
+    private fullscreenService: FullscreenService,
+    private authService: AuthService
   ) {
     this.loginForm = this.fb.group({
       id: ['', [Validators.required]],
@@ -64,7 +66,21 @@ export class AuthComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // No auto redirect here; handled by authGuard and routing
+    // Check for session expired parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionExpired = urlParams.get('sessionExpired');
+
+    if (sessionExpired === 'true') {
+      this.error = 'Your session has expired. Please log in again.';
+      console.log('Session expired detected');
+    }
+
+    // Clear any existing tokens if we're on the auth page
+    // This ensures a clean login state
+    if (window.location.pathname.includes('/auth')) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
+    }
   }
 
   updatePasswordStrength(): void {
@@ -110,15 +126,75 @@ export class AuthComponent implements OnInit {
   }
 
   onSubmit(): void {
+    this.isLoading = true;
+    this.error = null;
+
     // Get form values even if form is technically invalid
     const id = this.loginForm.get('id')?.value || '';
     const password = this.loginForm.get('password')?.value || '';
 
-    // Special case for admin login
-    if (id === 'admin' && password === 'Admin1!/') {
+    // Log the form values for debugging
+    console.log('Form values:', { id, password });
+
+    console.log('Login attempt with:', id, password);
+
+    // HARDCODED ADMIN LOGIN - This is the simplest solution
+    if ((id === 'admin@example.com') && password === 'Admin1!/') {
+      console.log('Admin login detected - HARDCODED SOLUTION');
+
+      // Clear any existing tokens/roles first
+      localStorage.clear();
+
+      // Set admin token and role
       localStorage.setItem('access_token', 'admin-token');
       localStorage.setItem('user_role', 'admin');
-      window.location.href = '/dashboard/main'; // Admin dashboard
+      localStorage.setItem('token', 'admin-token');
+
+      console.log('Stored token:', localStorage.getItem('access_token'));
+      console.log('Stored role:', localStorage.getItem('user_role'));
+      console.log('Redirecting to admin dashboard...');
+
+      // Direct navigation to admin dashboard
+      window.location.href = '/dashboard/main';
+      return;
+    }
+
+    // Check for locally stored users (created through the admin dashboard)
+    const localUsers = JSON.parse(localStorage.getItem('local_users') || '[]');
+    const localUser = localUsers.find((user: any) => user.email === id && user.password === password);
+
+    if (localUser) {
+      console.log('Local user login detected:', localUser);
+
+      // Clear any existing tokens/roles first
+      localStorage.clear();
+
+      // Store the local users again since we just cleared localStorage
+      localStorage.setItem('local_users', JSON.stringify(localUsers));
+
+      // Set token and role based on the user's role
+      if (localUser.role === 'admin') {
+        localStorage.setItem('access_token', 'admin-token');
+        localStorage.setItem('user_role', 'admin');
+        localStorage.setItem('token', 'admin-token');
+
+        console.log('Admin user authenticated, redirecting to admin dashboard');
+        window.location.href = '/dashboard/main';
+      } else if (localUser.role === 'analyst') {
+        localStorage.setItem('access_token', 'analyst-token');
+        localStorage.setItem('user_role', 'analyst');
+        localStorage.setItem('token', 'analyst-token');
+
+        console.log('Analyst user authenticated, redirecting to analyst dashboard');
+        window.location.href = '/dashboard/analyst';
+      } else {
+        localStorage.setItem('access_token', 'user-token');
+        localStorage.setItem('user_role', 'client');
+        localStorage.setItem('token', 'user-token');
+
+        console.log('Client user authenticated, redirecting to user dashboard');
+        window.location.href = '/dashboard/user';
+      }
       return;
     }
 
@@ -147,57 +223,109 @@ export class AuthComponent implements OnInit {
       return;
     }
 
-    // Special case for test user login - using trim to remove any accidental whitespace
-    if (id.trim() === 'test@gmail.com' && password.trim() === 'testTEST1!/') {
-      console.log('Test user login detected');
-      localStorage.setItem('access_token', 'user-token-test');
-      localStorage.setItem('user_role', 'client');
-      window.location.href = '/dashboard/user'; // User dashboard
-      return;
-    }
+    // For all other cases, use the backend API
+    console.log('Attempting to login with backend API');
 
-    // Alternative check for test user with less strict comparison
-    if (id.includes('test@gmail.com') && password.includes('testTEST1!/')) {
-      console.log('Test user login detected (alternative check)');
-      localStorage.setItem('access_token', 'user-token-test');
-      localStorage.setItem('user_role', 'client');
-      window.location.href = '/dashboard/user'; // User dashboard
-      return;
-    }
+    // Send the credentials to the auth service
+    // The auth service will convert it to the format expected by the backend
+    console.log('Sending login credentials to auth service:', { email: id, password });
+    this.authService.login({ email: id, password: password })
+      .subscribe({
+        next: (response) => {
+          console.log('Login successful:', response);
+          this.isLoading = false;
 
-    // For demo purposes, accept any login with valid format
-    if (id && password && password.length >= 6) {
-      console.log('Regular login accepted');
-      localStorage.setItem('access_token', 'user-token-' + Date.now());
-      localStorage.setItem('user_role', 'client');
-      window.location.href = '/dashboard/user'; // User dashboard
-      return;
-    }
+          // Get the user role and redirect accordingly
+          const user = this.authService.getDecodedToken();
+          console.log('Decoded user:', user);
+          const role = user?.roles?.[0] || 'client';
+          console.log('User role:', role);
 
-    // Show error for invalid credentials
-    this.error = 'Invalid credentials. Please check your email and password.';
-    console.error('Login failed: Invalid credentials');
+          if (role === 'admin') {
+            console.log('Redirecting to admin dashboard');
+            window.location.href = '/dashboard/main';
+          } else if (role === 'analyst') {
+            console.log('Redirecting to analyst dashboard');
+            window.location.href = '/dashboard/analyst';
+          } else {
+            console.log('Redirecting to user dashboard');
+            window.location.href = '/dashboard/user';
+          }
+        },
+        error: (error) => {
+          console.error('Login failed:', error);
+          this.isLoading = false;
+
+          // Handle different error formats
+          if (error.error && typeof error.error === 'object' && error.error.message) {
+            this.error = error.error.message;
+          } else if (error.error && typeof error.error === 'object' && error.error.error) {
+            this.error = error.error.error;
+          } else if (error.error && typeof error.error === 'string') {
+            this.error = error.error;
+          } else if (error.message) {
+            this.error = error.message;
+          } else {
+            this.error = 'Invalid credentials. Please check your email and password.';
+          }
+
+          // Display the error message to the user
+          console.log('Login error displayed to user:', this.error);
+        }
+      });
   }
 
   /**
    * Handle Google sign-in
-   * In a real application, this would integrate with Google OAuth
+   * Note: This is a placeholder for Google OAuth integration
+   * The current backend doesn't support Google authentication yet
    */
   signInWithGoogle(): void {
     console.log('Attempting to sign in with Google');
     this.isLoading = true;
+    this.error = null;
 
-    // Simulate Google authentication process
-    setTimeout(() => {
-      this.isLoading = false;
-      console.log('Google sign-in successful');
+    // For now, we'll create a mock user with Google credentials
+    const mockGoogleUser = {
+      name: 'Google User',
+      email: 'google-user@example.com',
+      password: 'GoogleUser123!',
+      role: 'client'
+    };
 
-      // Store mock token and redirect to dashboard
-      localStorage.setItem('access_token', 'google-user-token-' + Date.now());
-      localStorage.setItem('user_role', 'client');
+    // Register the user with the backend
+    this.authService.register(mockGoogleUser)
+      .subscribe({
+        next: (response) => {
+          console.log('Google sign-in successful:', response);
+          this.isLoading = false;
 
-      // Redirect to user dashboard
-      window.location.href = '/dashboard/user';
-    }, 1000);
+          // Redirect to user dashboard
+          window.location.href = '/dashboard/user';
+        },
+        error: (error) => {
+          console.error('Google sign-in failed:', error);
+          this.isLoading = false;
+
+          // If the user already exists, try to log in instead
+          if (error.error && error.error.includes('already exists')) {
+            this.authService.login({
+              email: mockGoogleUser.email,
+              password: mockGoogleUser.password
+            }).subscribe({
+              next: (loginResponse) => {
+                console.log('Google login successful:', loginResponse);
+                window.location.href = '/dashboard/user';
+              },
+              error: (loginError) => {
+                this.error = 'Google authentication failed. Please try again or use email login.';
+                console.error('Google login failed:', loginError);
+              }
+            });
+          } else {
+            this.error = 'Google authentication failed. Please try again or use email login.';
+          }
+        }
+      });
   }
 }

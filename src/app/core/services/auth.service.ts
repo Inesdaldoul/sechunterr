@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { User } from '../models/user.model';
+import { JwtHelperService } from '@auth0/angular-jwt';
+import { HttpClient } from '@angular/common/http';
+import { catchError, tap } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -8,6 +11,9 @@ import { User } from '../models/user.model';
 export class AuthService {
   private authStateSubject = new BehaviorSubject<boolean>(false);
   public authState$: Observable<boolean> = this.authStateSubject.asObservable();
+
+  // Property to store the URL that the user tried to access before being redirected to login
+  redirectUrl: string | null = null;
 
   // Mock user database for demonstration
   private users: { [key: string]: User } = {
@@ -45,7 +51,7 @@ export class AuthService {
   // Lockout duration in minutes
   private LOCKOUT_DURATION = 30;
 
-  constructor() {
+  constructor(private jwtHelper: JwtHelperService, private http: HttpClient) {
     // Load registered users from storage
     this.loadUsersFromStorage();
 
@@ -388,5 +394,128 @@ export class AuthService {
     }
 
     return null;
+  }
+
+  /**
+   * Get the current access token from localStorage
+   */
+  getAccessToken(): string | null {
+    return localStorage.getItem('access_token');
+  }
+
+  /**
+   * Decode the JWT token and return the user information
+   */
+  getDecodedToken(): User | null {
+    const token = this.getAccessToken();
+    if (!token) return null;
+
+    try {
+      // Try to decode the token using JwtHelperService
+      const decodedToken = this.jwtHelper.decodeToken(token);
+      if (decodedToken) {
+        return {
+          ...decodedToken,
+          id: decodedToken.sub || localStorage.getItem('user_id') || '',
+          roles: decodedToken.roles || [this.getUserRole()],
+          mfaEnabled: false
+        } as User;
+      }
+    } catch (error) {
+      console.error('Error decoding token:', error);
+    }
+
+    // Fallback: Create a user object based on localStorage data
+    const userId = localStorage.getItem('user_id');
+    const userRole = this.getUserRole();
+    const userName = this.getUserName();
+    const userEmail = this.getUserEmail();
+
+    if (userId && userRole) {
+      return {
+        id: userId,
+        email: userEmail || 'user@example.com',
+        name: userName || 'User',
+        roles: [userRole],
+        mfaEnabled: false
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Refresh the access token
+   */
+  refreshToken(): Observable<any> {
+    // In a real app, this would call an API endpoint to refresh the token
+    console.log('Refreshing token...');
+
+    // For demo purposes, generate a new token with extended expiration
+    const now = Math.floor(Date.now() / 1000);
+    const expiresIn = 24 * 60 * 60; // 24 hours in seconds
+    const exp = now + expiresIn;
+
+    // Get current user role
+    const userRole = this.getUserRole();
+
+    // Generate a new mock token
+    const mockToken = userRole === 'admin'
+      ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkbWluIFVzZXIiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE1MTYyMzkwMjJ9'
+      : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ODc2NTQzMjEwIiwibmFtZSI6IkNsaWVudCBVc2VyIiwicm9sZSI6ImNsaWVudCIsImlhdCI6MTUxNjIzOTAyMn0';
+
+    // Store the new token
+    localStorage.setItem('access_token', mockToken);
+    localStorage.setItem('token_exp', exp.toString());
+
+    return of({ token: mockToken, exp });
+  }
+
+  /**
+   * Toggle Multi-Factor Authentication for the current user
+   */
+  toggleMFA(): Observable<any> {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      return throwError(() => new Error('User not authenticated'));
+    }
+
+    // Find the current user
+    let currentUser: User | null = null;
+    let username = '';
+
+    for (const uname in this.users) {
+      if (this.users[uname].id === userId) {
+        currentUser = this.users[uname];
+        username = uname;
+        break;
+      }
+    }
+
+    if (!currentUser || !username) {
+      return throwError(() => new Error('User not found'));
+    }
+
+    // Toggle MFA status
+    const success = this.toggleMFAStatus(username);
+
+    if (success) {
+      if (currentUser.mfaEnabled) {
+        // MFA was enabled, return QR code data
+        return of({
+          success: true,
+          enabled: true,
+          qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAAB30lEQVR42uyYMY7sIBBEa+QrcAWuwBW4MlfgClxhLzD7/0+YHlpWO96ZHY1WlpYStuiuV9XGQK1atWrVqlWrVq1atWrVqvUDy0Q0gKhvNay0rrQA6JdasfpjrQgAXLKVlwBYC4C+ZCsvAbAWAJcA9CUA1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYCYC0A1gJgLQDWAmAtANYC4P8B/AUTif/Qd9Q4UAAAAABJRU5ErkJggg=='
+        });
+      } else {
+        // MFA was disabled
+        return of({
+          success: true,
+          enabled: false
+        });
+      }
+    }
+
+    return throwError(() => new Error('Failed to toggle MFA status'));
   }
 }

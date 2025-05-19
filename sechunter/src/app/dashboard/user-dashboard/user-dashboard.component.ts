@@ -23,21 +23,29 @@ import { Router, RouterModule } from '@angular/router';
 })
 export class UserDashboardComponent implements OnInit {
   // Renamed to "Page d'accueil" but keeping the component name for compatibility
+  // Module type constants
+  readonly ASM_MODULE = 'asm';
+  readonly VI_MODULE = 'vi';
+  readonly CTI_MODULE = 'cti';
+  readonly SOAR_MODULE = 'soar';
+
   // Track which image is currently displayed
-  activeModule: 'asm' | 'vi' | 'cti' | null = null;
+  activeModule: 'asm' | 'vi' | 'cti' | 'soar' | null = null;
 
   // Image paths
   imagePaths = {
     asm: 'assets/images/asm.png',
     vi: 'assets/images/vi.png',
-    cti: 'assets/images/cti.png'
+    cti: 'assets/images/cti.png',
+    soar: 'assets/images/soar.png'
   };
 
   // Module display names
   moduleNames = {
     asm: 'Attack Surface Management',
     vi: 'Vulnerability Intelligence',
-    cti: 'Cyber Threat Intelligence'
+    cti: 'Cyber Threat Intelligence',
+    soar: 'Security Orchestration'
   };
 
   constructor(private snackBar: MatSnackBar, private router: Router) {}
@@ -48,8 +56,9 @@ export class UserDashboardComponent implements OnInit {
 
   /**
    * Show the image for the selected module
+   * @param module The module to show (asm, vi, cti, or soar)
    */
-  showModule(module: 'asm' | 'vi' | 'cti'): void {
+  showModule(module: 'asm' | 'vi' | 'cti' | 'soar'): void {
     console.log('Showing module:', module);
     this.activeModule = module;
   }
@@ -62,12 +71,13 @@ export class UserDashboardComponent implements OnInit {
     const title = menuTitle.toLowerCase();
 
     if (title.includes('attack') || title.includes('asm')) {
-      this.showModule('asm');
+      this.showModule(this.ASM_MODULE);
     } else if (title.includes('vulnerability') || title.includes('vi')) {
-      this.showModule('vi');
+      this.showModule(this.VI_MODULE);
     } else if (title.includes('cyber') || title.includes('threat') || title.includes('cti')) {
-      this.showModule('cti');
-
+      this.showModule(this.CTI_MODULE);
+    } else if (title.includes('security') || title.includes('orchestration') || title.includes('soar')) {
+      this.showModule(this.SOAR_MODULE);
     }
   }
 

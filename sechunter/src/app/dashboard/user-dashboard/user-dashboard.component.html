@@ -23,30 +23,29 @@
           </div>
 
           <div class="security-modules">
-            <div class="module-card" (click)="showModule('asm')" style="cursor: pointer;">
+            <div class="module-card" (click)="showModule(ASM_MODULE)" style="cursor: pointer;">
               <div class="card-glow"></div>
               <mat-icon>security</mat-icon>
               <h3>Attack Surface Management</h3>
               <p class="card-description">Discover and monitor your external attack surface</p>
             </div>
-            <div class="module-card" (click)="showModule('vi')" style="cursor: pointer;">
+            <div class="module-card" (click)="showModule(VI_MODULE)" style="cursor: pointer;">
               <div class="card-glow"></div>
               <mat-icon>bug_report</mat-icon>
               <h3>Vulnerability Intelligence</h3>
               <p class="card-description">Track and prioritize vulnerabilities in real-time</p>
             </div>
-            <div class="module-card" (click)="showModule('cti')" style="cursor: pointer;">
+            <div class="module-card" (click)="showModule(CTI_MODULE)" style="cursor: pointer;">
               <div class="card-glow"></div>
               <mat-icon>gpp_maybe</mat-icon>
               <h3>Cyber Threat Intelligence</h3>
               <p class="card-description">Stay ahead of emerging threats and actors</p>
             </div>
-            <!-- SOAR module removed as it's not supported in the component -->
-            <div class="module-card" style="cursor: not-allowed; opacity: 0.7;">
+            <div class="module-card" (click)="showModule(SOAR_MODULE)" style="cursor: pointer;">
               <div class="card-glow"></div>
               <mat-icon>healing</mat-icon>
               <h3>Security Orchestration</h3>
-              <p class="card-description">Coming soon - Automate incident response and remediation</p>
+              <p class="card-description">Automate incident response and remediation</p>
             </div>
           </div>
         </div>

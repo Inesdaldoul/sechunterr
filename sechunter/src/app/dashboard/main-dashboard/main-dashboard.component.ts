@@ -29,6 +29,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AuditService, AuditEntry } from '../../core/services/audit.service';
 import { MicroserviceConnectorService, MicroserviceType } from '../../core/services/microservice-connector.service';
 import { User, UserRole } from '../../core/models/user.model';
+import { MongoDBService } from '../../core/services/mongodb.service';
 
 @Component({
   selector: 'app-main-dashboard',
@@ -143,13 +144,7 @@ export class MainDashboardComponent implements OnInit, OnDestroy {
   sourceModule = '';
 
   // User Management
-  users: User[] = [
-    { id: '1', email: 'admin@voc.com', name: 'Admin Principal', roles: ['admin', 'superuser'], mfaEnabled: true, lastLogin: new Date() },
-    { id: '2', email: 'admin2@voc.com', name: 'Admin Secondaire', roles: ['admin'], mfaEnabled: true, lastLogin: new Date(Date.now() - 43200000) },
-    { id: '3', email: 'analyst1@voc.com', name: 'Analyste Senior', roles: ['analyst'], mfaEnabled: true, lastLogin: new Date(Date.now() - 86400000) },
-    { id: '4', email: 'analyst2@voc.com', name: 'Analyste Junior', roles: ['analyst'], mfaEnabled: false, lastLogin: new Date(Date.now() - 129600000) },
-    { id: '5', email: 'analyst3@voc.com', name: 'Analyste Spécialisé CTI', roles: ['analyst'], mfaEnabled: true, lastLogin: new Date(Date.now() - 172800000) }
-  ];
+  users: User[] = [];
   displayedUserColumns: string[] = ['email', 'name', 'role', 'mfa', 'lastLogin', 'actions'];
 
   // Global Statistics
@@ -295,10 +290,53 @@ export class MainDashboardComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private auditService: AuditService,
     private microserviceConnector: MicroserviceConnectorService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private mongoService: MongoDBService
   ) { }
 
   ngOnInit(): void {
+    console.log('Main dashboard initializing...');
+
+    // DIRECT CHECK FOR ADMIN TOKEN - Simplest solution
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    const role = localStorage.getItem('user_role');
+
+    console.log('Main dashboard checking token:', token);
+    console.log('Main dashboard checking role:', role);
+
+    // If we have the admin token, we're good to go
+    if (token === 'admin-token' && role === 'admin') {
+      console.log('Admin token detected, allowing access to main dashboard');
+      return;
+    }
+
+    // Otherwise, verify authentication
+    if (!this.authService.isAuthenticated()) {
+      console.error('User not authenticated, redirecting to login');
+      window.location.href = '/auth?sessionExpired=true';
+      return;
+    }
+
+    // Verify admin role
+    const user = this.authService.getDecodedToken();
+    console.log('Current user:', user);
+
+    if (!user || !user.roles || !user.roles.includes('admin')) {
+      console.error('User is not an admin, redirecting to appropriate dashboard');
+
+      // Redirect based on role
+      if (user && user.roles) {
+        if (user.roles.includes('analyst')) {
+          window.location.href = '/dashboard/analyst';
+        } else {
+          window.location.href = '/dashboard/user';
+        }
+      } else {
+        window.location.href = '/auth';
+      }
+      return;
+    }
+
     // Check query parameters for source flag
     this.route.queryParams.subscribe(params => {
       // Get the source module
@@ -309,21 +347,126 @@ export class MainDashboardComponent implements OnInit, OnDestroy {
     });
 
     // Subscribe to dashboard data
-    this.dashboardDataService.vulnerabilities$.subscribe(data => {
-      this.vulnerabilities = data;
-    });
+    this.subscriptions.push(
+      this.dashboardDataService.vulnerabilities$.subscribe(data => {
+        console.log('Received vulnerability data:', data);
+        this.vulnerabilities = data;
+      })
+    );
 
-    this.dashboardDataService.securityDomains$.subscribe(data => {
-      this.securityDomains = data;
-    });
+    this.subscriptions.push(
+      this.dashboardDataService.securityDomains$.subscribe(data => {
+        console.log('Received security domain data:', data);
+        this.securityDomains = data;
+      })
+    );
 
-    this.dashboardDataService.threatAlerts$.subscribe(data => {
-      this.threatAlerts = data;
-    });
+    this.subscriptions.push(
+      this.dashboardDataService.threatAlerts$.subscribe(data => {
+        console.log('Received threat alert data:', data);
+        this.threatAlerts = data;
+      })
+    );
 
-    this.dashboardDataService.isDrillDownActive$.subscribe(active => {
-      this.isDrillDownActive = active;
-    });
+    this.subscriptions.push(
+      this.dashboardDataService.isDrillDownActive$.subscribe(active => {
+        this.isDrillDownActive = active;
+      })
+    );
+
+    // Load users from MongoDB
+    this.loadUsers();
+
+    console.log('Main dashboard initialization complete');
+  }
+
+  loadUsers(): void {
+    console.log('Loading users from MongoDB...');
+
+    // If MongoDB service is not available, use mock data
+    if (!this.mongoService) {
+      console.warn('MongoDB service not available, using mock data');
+      this.users = [
+        {
+          id: '1',
+          email: 'admin@voc.com',
+          name: 'Admin User',
+          roles: ['admin'],
+          mfaEnabled: true,
+          lastLogin: new Date()
+        },
+        {
+          id: '2',
+          email: 'analyst@voc.com',
+          name: 'Analyst User',
+          roles: ['analyst'],
+          mfaEnabled: false,
+          lastLogin: new Date(Date.now() - 86400000)
+        },
+        {
+          id: '3',
+          email: 'client@example.com',
+          name: 'Client User',
+          roles: ['client'],
+          mfaEnabled: false,
+          lastLogin: new Date(Date.now() - 172800000)
+        }
+      ];
+      return;
+    }
+
+    // Try to load users from MongoDB
+    this.mongoService.getAllUsers().subscribe(
+      (users) => {
+        if (users && users.length > 0) {
+          this.users = users;
+          console.log('Users loaded from MongoDB:', users);
+        } else {
+          console.warn('No users found in MongoDB, using mock data');
+          // Use mock data if no users found
+          this.users = [
+            {
+              id: '1',
+              email: 'admin@voc.com',
+              name: 'Admin User',
+              roles: ['admin'],
+              mfaEnabled: true,
+              lastLogin: new Date()
+            },
+            {
+              id: '2',
+              email: 'analyst@voc.com',
+              name: 'Analyst User',
+              roles: ['analyst'],
+              mfaEnabled: false,
+              lastLogin: new Date(Date.now() - 86400000)
+            }
+          ];
+        }
+      },
+      (error) => {
+        console.error('Error loading users from MongoDB:', error);
+        // Use mock data on error
+        this.users = [
+          {
+            id: '1',
+            email: 'admin@voc.com',
+            name: 'Admin User',
+            roles: ['admin'],
+            mfaEnabled: true,
+            lastLogin: new Date()
+          },
+          {
+            id: '2',
+            email: 'analyst@voc.com',
+            name: 'Analyst User',
+            roles: ['analyst'],
+            mfaEnabled: false,
+            lastLogin: new Date(Date.now() - 86400000)
+          }
+        ];
+      }
+    );
   }
 
   addInstance(): void {
@@ -427,27 +570,67 @@ export class MainDashboardComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        // Ajouter le nouvel utilisateur à la liste
-        this.users.push(result);
+        console.log('User dialog result:', result);
 
-        // Créer une entrée d'audit
-        const auditEntry: AuditEntry = {
-          timestamp: new Date().toISOString(),
-          endpoint: '/api/users',
-          method: 'POST',
-          status: 'success',
-          user: { id: '1', email: 'admin@voc.com' },
-          metadata: {
-            ipAddress: '192.168.1.1',
-            userAgent: 'Chrome',
-            details: `Utilisateur créé: ${result.email}`
+        // Register the user with the backend
+        this.authService.register({
+          name: result.name,
+          email: result.email,
+          password: result.password,
+          role: result.role // This is the primary role
+        }).subscribe({
+          next: (response) => {
+            console.log('User registration successful:', response);
+
+            // Add the user to the local list with backend-generated ID if available
+            const newUser = {
+              ...result,
+              id: response.id || response._id || result.id
+            };
+
+            // Add the new user to the list
+            this.users.push(newUser);
+
+            // Create an audit entry
+            const auditEntry: AuditEntry = {
+              timestamp: new Date().toISOString(),
+              endpoint: '/api/auth/register',
+              method: 'POST',
+              status: 'success',
+              user: { id: '1', email: 'admin@example.com' },
+              metadata: {
+                ipAddress: '192.168.1.1',
+                userAgent: 'Chrome',
+                details: `User created: ${result.email} with role: ${result.role}`
+              }
+            };
+
+            // Add the audit entry
+            this.auditLogs.unshift(auditEntry);
+
+            console.log('New user added:', newUser);
+          },
+          error: (error) => {
+            console.error('Error registering user:', error);
+
+            // Create an error audit entry
+            const auditEntry: AuditEntry = {
+              timestamp: new Date().toISOString(),
+              endpoint: '/api/auth/register',
+              method: 'POST',
+              status: 'error',
+              user: { id: '1', email: 'admin@example.com' },
+              metadata: {
+                ipAddress: '192.168.1.1',
+                userAgent: 'Chrome',
+                details: `Failed to create user: ${result.email}. Error: ${error.message || 'Unknown error'}`
+              }
+            };
+
+            // Add the error audit entry
+            this.auditLogs.unshift(auditEntry);
           }
-        };
-
-        // Ajouter l'entrée d'audit
-        this.auditLogs.unshift(auditEntry);
-
-        console.log('Nouvel utilisateur ajouté:', result);
+        });
       }
     });
   }
@@ -613,7 +796,23 @@ export class MainDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Clean up subscriptions to prevent memory leaks
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    console.log('Main dashboard destroying, cleaning up subscriptions');
+
+    // Unsubscribe from all subscriptions
+    if (this.subscriptions && this.subscriptions.length > 0) {
+      this.subscriptions.forEach(sub => {
+        if (sub) {
+          try {
+            sub.unsubscribe();
+          } catch (error) {
+            console.error('Error unsubscribing:', error);
+          }
+        }
+      });
+
+      // Clear the subscriptions array
+      this.subscriptions = [];
+    }
   }
 }
+

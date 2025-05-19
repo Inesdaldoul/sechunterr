@@ -53,8 +53,8 @@
     </ul>
   </nav>
 
-  <!-- Authentication Buttons - only show for non-authenticated users -->
-  <div class="sidebar-section auth-section" *ngIf="!collapsed && userRole !== 'admin' && userRole !== 'analyst'">
+  <!-- Supprimer la section d'authentification pour les utilisateurs non authentifiés -->
+  <!-- <div class="sidebar-section auth-section" *ngIf="!collapsed && userRole !== 'admin' && userRole !== 'analyst'">
     <h4 class="section-title">ACCESS PREMIUM FEATURES</h4>
     <div class="auth-buttons">
       <button class="auth-btn create-account-btn" (click)="navigateToSignUp()">
@@ -66,7 +66,7 @@
         <span>Sign In</span>
       </button>
     </div>
-  </div>
+  </div> -->
 
   <!-- User Actions -->
   <div class="sidebar-footer">
@@ -76,3 +76,5 @@
     </button>
   </div>
 </div>
+
+

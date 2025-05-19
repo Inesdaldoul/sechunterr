@@ -35,8 +35,7 @@ export class AddUserDialogComponent {
   availableRoles = [
     { value: 'admin', label: 'Administrateur' },
     { value: 'superuser', label: 'Super Utilisateur' },
-    { value: 'analyst', label: 'Analyste' },
-    { value: 'client', label: 'Client' }
+    { value: 'analyst', label: 'Analyste' }
   ];
 
   constructor(
@@ -53,16 +52,52 @@ export class AddUserDialogComponent {
     });
   }
 
+  // Ajouter une méthode pour générer un mot de passe aléatoire
+  generateRandomPassword(): void {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+    let password = '';
+
+    // Assurer au moins une majuscule, une minuscule, un chiffre et un caractère spécial
+    password += 'A' + 'a' + '1' + '!';
+
+    // Ajouter des caractères aléatoires pour atteindre une longueur de 12
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Mélanger le mot de passe
+    password = password.split('').sort(() => 0.5 - Math.random()).join('');
+
+    this.userForm.get('password')?.setValue(password);
+  }
+
   onSubmit(): void {
     if (this.userForm.valid) {
+      // Get form values
+      const formValues = this.userForm.value;
+
+      // Format the user data for the backend
+      // The backend expects a single role string, but our form uses an array
+      const primaryRole = Array.isArray(formValues.roles) && formValues.roles.length > 0
+        ? formValues.roles[0]
+        : 'analyst';
+
+      // Create the user object with the format expected by the backend
       const newUser = {
-        id: Date.now().toString(), // Génère un ID temporaire
-        ...this.userForm.value,
+        id: Date.now().toString(), // Temporary ID, will be replaced by the backend
+        name: formValues.name,
+        email: formValues.email,
+        password: formValues.password,
+        role: primaryRole, // Send the primary role
+        roles: formValues.roles, // Keep the full roles array for the frontend
+        mfaEnabled: formValues.mfaEnabled,
         lastLogin: new Date()
       };
+
+      console.log('Submitting new user:', newUser);
       this.dialogRef.close(newUser);
     } else {
-      // Marquer tous les champs comme touchés pour afficher les erreurs
+      // Mark all fields as touched to display errors
       Object.keys(this.userForm.controls).forEach(key => {
         const control = this.userForm.get(key);
         control?.markAsTouched();
@@ -90,3 +125,5 @@ export class AddUserDialogComponent {
     return passwordControl?.hasError('minlength') ? 'Le mot de passe doit contenir au moins 8 caractères' : '';
   }
 }
+
+

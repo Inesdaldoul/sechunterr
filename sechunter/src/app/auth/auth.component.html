@@ -15,13 +15,14 @@
 
       <form [formGroup]="loginForm" class="auth-form">
         <div class="input-field cyber-input">
-          <label for="id" class="hologram-label">Enterprise ID</label>
+          <label for="id" class="hologram-label">Email Address</label>
           <input
-            type="text"
+            type="email"
             id="id"
             formControlName="id"
-            autocomplete="off"
+            autocomplete="email"
             required
+            placeholder="admin@example.com"
           >
           <div class="cyber-border"></div>
           <i class="icon icon-beam"></i>
@@ -87,8 +88,9 @@
           type="button"
           class="auth-button cyber-button"
           (click)="onSubmit()"
+          [disabled]="isLoading"
         >
-          <span>SIGN IN</span>
+          <span>{{ isLoading ? 'SIGNING IN...' : 'SIGN IN' }}</span>
         </button>
 
         <!-- Divider -->
@@ -120,10 +122,6 @@
             <span>Zero Trust Architecture</span>
           </div>
         </div>
-
-        <p class="auth-switch">
-          don't have an account ? <a routerLink="/signup" class="neon-link" queryParamsHandling="preserve">Create an account</a>
-        </p>
 
         <!-- Direct link to new analyst dashboard -->
         <div class="demo-link">
