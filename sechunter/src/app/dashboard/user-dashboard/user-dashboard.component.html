@@ -12,10 +12,7 @@
           <p>Explorez nos modules de sécurité complets pour protéger vos actifs numériques et votre infrastructure. Sélectionnez un module ci-dessous pour afficher les détails.</p>
 
           <div class="account-buttons">
-            <button mat-raised-button color="primary" class="create-account-btn" (click)="navigateToSignup()" style="cursor: pointer;">
-              <mat-icon>person_add</mat-icon>
-              Créer un compte
-            </button>
+           
             <button mat-raised-button class="sign-in-btn" (click)="navigateToAuth()" style="cursor: pointer;">
               <mat-icon>login</mat-icon>
               Se connecter
@@ -41,12 +38,7 @@
               <h3>Cyber Threat Intelligence</h3>
               <p class="card-description">Stay ahead of emerging threats and actors</p>
             </div>
-            <div class="module-card" (click)="showModule(SOAR_MODULE)" style="cursor: pointer;">
-              <div class="card-glow"></div>
-              <mat-icon>healing</mat-icon>
-              <h3>Security Orchestration</h3>
-              <p class="card-description">Automate incident response and remediation</p>
-            </div>
+
           </div>
         </div>
       }

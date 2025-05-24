@@ -99,16 +99,7 @@
         </div>
 
         <!-- Google Sign In Button -->
-        <button
-          type="button"
-          class="google-auth-button"
-          (click)="signInWithGoogle()"
-          [disabled]="isLoading"
-        >
-          <i class="google-icon" *ngIf="!isLoading"></i>
-          <i class="loading-spinner" *ngIf="isLoading"></i>
-          <span>{{ isLoading ? 'Connecting...' : 'Connect with Google' }}</span>
-        </button>
+       
       </form>
 
       <footer class="auth-footer">
@@ -124,12 +115,12 @@
         </div>
 
         <!-- Direct link to new analyst dashboard -->
-        <div class="demo-link">
+        <!--div class="demo-link">
           <a routerLink="/dashboard/analyst-new" class="cyber-link">
             <i class="icon icon-dashboard"></i>
             <span>Try New Analyst Dashboard Demo</span>
           </a>
-        </div>
+        </div-->
       </footer>
     </div>
   </div>
